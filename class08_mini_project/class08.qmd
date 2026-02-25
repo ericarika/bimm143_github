@@ -1,0 +1,247 @@
+---
+title: "class08"
+author: "Erica Yue Hu (PID: A17787225)"
+format: pdf
+---
+
+## background 
+
+in today's class we will be employing all the R techniques for data analysis that we have learned thus far - including the machine learning methods of clustering and PCA - to analyze real breat cancer biopsy data. 
+
+## data import
+
+the data is in csv format 
+```{r}
+read.csv("WisconsinCancer.csv")
+```
+
+
+```{r}
+fna.data <- "WisconsinCancer.csv"
+
+wisc.df <- read.csv(fna.data, row.names=1)
+
+wisc.df
+```
+
+>row.names =1 means that the first column are row names not regular data column 
+
+wee peak at the data 
+```{r}
+head(wisc.df, 3)
+```
+>Q1. how many observations are in this datatset? 
+
+569 
+```{r}
+nrow(wisc.df)
+```
+
+>Q2. how many observations have a malignant diagonsis 
+
+212
+
+```{r}
+sum(wisc.df$diagnosis == "M")
+table(wisc.df$diagnosis)
+```
+
+>Q3. how many variables/features in the data are suffixed with _mean? 
+
+```{r}
+length(grep("_mean", colnames(wisc.df)))
+```
+10 features. 
+the pattern for grep is grep(pattern, x). pattern is what you want, x is where you want it from. 
+
+remove first column "diagnosis" from the data set cuz we don't wanna pass this to PCA. we will save this as a separate vector that we can useater to compare our findings to those of exprert. 
+```{r}
+wisc.data <- wisc.df[,-1]
+diagnosis <-wisc.df$diagnosis
+```
+
+## principal compoent analysis (pca)
+
+the main function in base r is called `prcomp()`. we will use the optional arugement `scale=TRUE` here as the data columns/features/dimensions are on very different scales in the original data set. 
+
+prcomp(x, scale = F, center = T)
+
+```{r}
+wisc.pr <- prcomp(wisc.data, scale=T)
+```
+
+```{r}
+attributes(wisc.pr)
+```
+```{r}
+wisc.pr$x
+```
+
+```{r}
+library(ggplot2) 
+
+ggplot(wisc.pr$x)+
+  aes(PC1, PC2, col=diagnosis)+
+  geom_point()
+```
+
+
+```{r}
+colMeans(wisc.data)
+
+apply(wisc.data,2,sd)
+```
+
+```{r}
+wisc.pr <- prcomp(wisc.data,scale=T)
+summary(wisc.pr)
+```
+>Q. From your results, what proportion of the original variance is captured by the first principal component (PC1)?
+
+Proportion of variance for PC1 = 0.4427
+
+>Q. How many principal components (PCs) are required to describe at least 70% of the original variance in the data?
+
+first 3 
+
+
+> Q6. How many principal components (PCs) are required to describe at least 90% of the original variance in the data?
+
+PCA1 TO PCA7 
+
+
+## interpreting pca 
+
+```{r}
+biplot(wisc.pr)
+```
+>Q. What stands out to you about this plot? Is it easy or difficult to understand? Why?
+
+
+the only thing that stands out is the diff in colors but other than that, pretty confusing 
+
+
+```{r}
+library(ggplot2)
+
+ggplot(wisc.pr$x) +
+  aes(x=PC1 , y=PC2, col=diagnosis) +
+  geom_point()
+
+```
+
+>Q. generate another one but for components 1 and 3, what do you notice?
+
+i noticed that the colors are the sam but its just lower on the graph 
+
+```{r}
+ggplot(wisc.pr$x) +
+  aes(PC1, PC3, col=diagnosis) +
+  geom_point()
+```
+
+```{r}
+pr.var <- wisc.pr$sdev^2
+head(pr.var)
+```
+Calculate the variance explained by each principal component by dividing by the total variance explained of all principal components:
+
+```{r}
+pve <- pr.var/sum(pr.var)
+
+# Plot variance explained for each principal component
+plot(c(1,pve), xlab = "Principal Component", 
+     ylab = "Proportion of Variance Explained", 
+     ylim = c(0, 1), type = "o")
+
+```
+
+```{r}
+# Alternative scree plot of the same data, note data driven y-axis
+barplot(pve, ylab = "Percent of Variance Explained",
+     names.arg=paste0("PC",1:length(pve)), las=2, axes = FALSE)
+axis(2, at=pve, labels=round(pve,2)*100 )
+
+```
+
+>Q9. For the first principal component, what is the component of the loading vector (i.e. wisc.pr$rotation[,1]) for the feature concave.points_mean? This tells us how much this original feature contributes to the first PC. Are there any features with larger contributions than this one?
+
+```{r}
+wisc.pr$rotation["concave.points_mean", 1]
+```
+
+```{r}
+data.scaled <- scale(wisc.data)
+data.dist <- dist(data.scaled)
+wisc.hclust <- hclust(data.dist, method = "complete")
+plot(wisc.hclust)
+abline(h=10, col="red", lty=2)
+
+
+```
+
+
+
+```{r}
+wisc.hclust.clusters <- cutree(wisc.hclust, k=2)
+table(wisc.hclust.clusters)
+```
+
+
+## combining methods 
+
+the idea here is that i can take my new variable (the PCs `wis.pr$x`) that are better descriptors of the data-set than the original features(i.e. the 30 columns in `wisc.data`) and use these as a basis for clustering. 
+
+
+```{r}
+pc.dist<-dist(wisc.pr$x[ , 1:3]) 
+wisc.pr.hclust <- hclust(pc.dist, method = "ward.D2")
+plot(wisc.pr.hclust)
+```
+
+```{r}
+grps <- cutree(wisc.pr.hclust,k=2)
+table(grps)
+```
+i can now run `table()` with both my clustering `grps` and the expert `diagnosis` 
+```{r}
+table(grps, diagnosis)
+```
+Our cluster "1" has 179  "M" diagnosis 
+Our cluster "2" has 333 "B" diagonsis. 
+
+TP (true positive) - there are 179 true positives 
+FP (false positives)- there are 24 false positives 
+TN (true negatives) - there are 333 true negatives 
+FN (false negatives) - there are 33 false negatives 
+
+sensitivity: TP/(TP+FN) 
+
+```{r}
+179/(179+33)
+```
+
+specificity: TN/(TN+FP)
+
+```{r}
+333/(333+24)
+```
+
+## prediction 
+
+we can use our pca model for prediction of new un-seen cases
+
+```{r}
+#url <- "new_samples.csv"
+url <- "https://tinyurl.com/new-samples-CSV"
+new <- read.csv(url)
+npc <- predict(wisc.pr, newdata=new)
+npc
+```
+```{r}
+plot(wisc.pr$x[,1:2], col=grps)
+points(npc[,1], npc[,2], col="blue", pch=16, cex=3)
+text(npc[,1], npc[,2], c(1,2), col="white")
+```
+
+>Q16. prioritize patient 2
