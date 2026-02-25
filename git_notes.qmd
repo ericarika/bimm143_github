@@ -1,0 +1,54 @@
+---
+title: "Git Notes again"
+format: html
+---
+
+
+## Basics of using git
+
+Git is a distributed version control system (VCS) that is very popular
+
+The core steps to using git involve
+
+1. initiate a git repository (the tick box before we start a project in R studio)
+    In RStudio we just click a little radio button on project creation
+    At the command line we type: `git innit`
+    
+2. do your normal work
+    add files 
+    modify files etc.
+    
+3. add your important files to the "stage" 
+    in RStudio we click "stage" radio button 
+    `git add yourfilename`
+    
+    
+4. commit your staged files to the repository 
+    In RStudio you just hit the "Commit" button and add a msg 
+    `git commit -m "your wee msg`
+    
+you can check your project "history" and status 
+    `git status` 
+    `git log` (push Q to exit)
+    
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+1 + 1
+```
+
+You can add options to executable code like this 
+
+```{r}
+#| echo: false
+2 * 2
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
