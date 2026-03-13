@@ -1,0 +1,206 @@
+---
+title: "Class 14"
+author: "Erica Yue Hu (A17787225)"
+format: pdf 
+---
+
+## Background 
+
+The authors report on differential analysis of lung fibroblasts in response to loss of the developmental transcription factor HOXA1. Their results and others indicate that HOXA1 is required for lung fibroblast and HeLa cell cycle progression. In particular their analysis show that "loss of HOXA1 results in significant expression level changes in thousands of individual transcripts, along with isoform switching events in key regulators of the cell cycle". For our session we have used their Sailfish gene-level estimated counts and hence are restricted to protein-coding genes only.
+
+the data for today's mini project comes from a knock-down study of an important HOX gene. 
+
+
+## data import 
+
+```{r}
+countData <-read.csv("GSE37704_featurecounts.csv", row.names=1)
+  colData <- read.csv("GSE37704_metadata.csv")
+```
+
+```{r}
+head (countData)
+```
+
+```{r}
+head(colData)
+```
+
+
+### clean up (data tidying)
+
+```{r}
+countData <- as.matrix(countData[,-1])
+head(countData)
+```
+
+```{r}
+nrow(colData) == ncol(countData)
+```
+
+```{r}
+to.keep <- rowSums(countData) > 0 
+countData <- countData [to.keep,]
+```
+
+## DESeq Analysis 
+
+```{r, message = FALSE}
+library(DESeq2)
+```
+
+
+### setting up input object
+
+```{r}
+dds <- DESeqDataSetFromMatrix(countData = countData,
+                       colData = colData,
+                       design = ~condition)
+```
+
+### running DESeq
+
+```{r}
+dds <- DESeq(dds)
+```
+
+### Getting results 
+
+```{r}
+res <- results(dds) 
+head(res)
+```
+
+## Volcano plot
+
+```{r}
+mycols <- rep("gray", nrow(res))
+mycols[res$log2FoldChange > 2 ] <-"pink"
+mycols[res$log2FoldChange < -2] <- "green"
+mycols[res$padj >= 0.05] <- "gray"
+
+library(ggplot2)
+ggplot(res, aes(log2FoldChange,
+                -log(padj)))+
+  geom_point(col=mycols)+
+  geom_vline(xintercept = c(-2,2), col="black")+
+  geom_hline(yintercept = -log(0.05), col="black")
+```
+
+
+##add anotation 
+
+```{r}
+library(AnnotationDbi)
+library(org.Hs.eg.db)
+columns(org.Hs.eg.db)
+
+res$name <- mapIds(org.Hs.eg.db,
+            keys = rownames(res),
+            keytype = "ENSEMBL",
+            column = "GENENAME")
+
+res$symbol <- mapIds(org.Hs.eg.db,
+              keys = rownames(res),
+              keytype = "ENSEMBL",
+              column = "SYMBOL")
+
+res$entrez <- mapIds(org.Hs.eg.db,
+              keys = rownames(res),
+              keytype = "ENSEMBL",
+              column = "ENTREZID")
+
+head(res)
+
+
+```
+
+```{r}
+res = res[order(res$pvalue),]
+write.csv(res, file = "deseq_results.csv")
+```
+
+## pathway analysis 
+
+```{r}
+library(gage)
+library(gageData)
+library(pathview)
+```
+
+### KEGG 
+
+```{r}
+data(kegg.sets.hs)
+data(sigmet.idx.hs)
+kegg.sets.hs = kegg.sets.hs[sigmet.idx.hs]
+head(kegg.sets.hs, 3)
+```
+
+```{r}
+foldchanges = res$log2FoldChange
+names(foldchanges) = res$entrez
+head(foldchanges)
+```
+
+```{r}
+keggres = gage(foldchanges, gsets=kegg.sets.hs)
+attributes(keggres)
+```
+```{r}
+head(keggres$less)
+```
+
+Let’s make a figure of these pathways with our DEGs highlighted:
+
+```{r}
+pathview(foldchanges, pathway.id = "hsa04110")
+```
+
+![](hsa04110.pathview.png)
+
+top 5 dwonregulated pathways: 
+```{r}
+keggrespathways <- rownames(keggres$less)[1:5]
+
+# Extract the 8 character long IDs part of each string
+keggresids = substr(keggrespathways, start=1, stop=8)
+keggresids
+
+```
+
+```{r}
+pathview(gene.data=foldchanges, pathway.id=keggresids, species="hsa")
+```
+
+![](hsa04110.pathview.png)
+![](hsa03030.pathview.png)
+
+![](hsa03013.pathview.png)
+
+![](hsa03440.pathview.png)
+![](hsa04114.pathview.png)
+
+
+### GO
+
+```{r}
+data(go.sets.hs)
+data(go.subs.hs)
+
+# Focus on Biological Process subset of GO
+gobpsets = go.sets.hs[go.subs.hs$BP]
+
+gobpres = gage(foldchanges, gsets=gobpsets)
+
+lapply(gobpres, head)
+
+```
+
+
+### reactome 
+
+
+
+
+
